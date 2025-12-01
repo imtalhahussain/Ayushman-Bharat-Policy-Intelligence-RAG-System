@@ -1,0 +1,24 @@
+# Environment
+.venv/
+venv/
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor folders
+.vscode/
+.idea/
+
+# Chroma DB data
+data/chroma/
+
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
