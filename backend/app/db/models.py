@@ -1,5 +1,3 @@
-# backend/app/db/models.py
-
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime
 from .base import Base

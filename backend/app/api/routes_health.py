@@ -8,5 +8,5 @@ def health():
 
 @router.get("/ready")
 def ready():
-    # Later: add checks for DB, Chroma, etc.
+    # Later: add real checks (DB, Chroma, etc.)
     return {"status": "ready"}

@@ -1,21 +1,16 @@
-import os
+# backend/app/rag/llm_client.py
+
 from openai import OpenAI
+from backend.app.config import settings  # 👈 from config.py
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-client = OpenAI(api_key=OPENAI_API_KEY)
-
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 def generate_answer(prompt: str) -> str:
-    """
-    Simple wrapper to call an LLM with a text prompt.
-    Adjust model name to what you actually have access to.
-    """
-    if not OPENAI_API_KEY:
-        raise RuntimeError("OPENAI_API_KEY is not set in environment.")
+    if not settings.OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is not set in environment")
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",  # or any other available chat model
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",  # or your chosen model
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
@@ -24,4 +19,4 @@ def generate_answer(prompt: str) -> str:
         max_tokens=500,
     )
 
-    return response.choices[0].message.content.strip()
+    return resp.choices[0].message.content.strip()

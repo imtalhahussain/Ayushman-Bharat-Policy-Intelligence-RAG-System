@@ -1,23 +1,17 @@
-# backend/app/main.py
-
 from fastapi import FastAPI
 
-from .api.routes_chat import router as chat_router
-from .config import settings  # ✅ use new config
+from backend.app.api.routes_chat import router as chat_router
+from backend.app.api.routes_health import router as health_router
+from backend.app.api.routes_auth import router as auth_router  # if created
+
+from backend.app.config import settings  # 👈 from config.py
 
 app = FastAPI(title="Ayushman Bharat Policy Intelligence RAG API")
 
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
-
+app.include_router(health_router)
+app.include_router(auth_router)
+app.include_router(chat_router)
 
 @app.get("/check-key")
 def check_key():
-    # This will just tell us if the key is loaded, not show the key
     return {"key_loaded": bool(settings.OPENAI_API_KEY)}
-
-
-# Mount chat routes
-app.include_router(chat_router)
