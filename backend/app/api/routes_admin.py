@@ -1,5 +1,3 @@
-# backend/app/api/routes_admin.py
-
 from fastapi import APIRouter, UploadFile, File
 from typing import List
 

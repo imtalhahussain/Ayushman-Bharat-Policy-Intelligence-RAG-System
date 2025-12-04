@@ -5,13 +5,14 @@ from .vector_store import (
     get_or_create_collection,
     embed_texts,
 )
-from .ingest import ingest_chunks  # 👈 import ingest function
+from .ingest import load_chunks  # 👈 only load_chunks, not ingest_chunks
+from tqdm import tqdm
 
 
 def ensure_collection_ready():
     """
     Ensure the Chroma collection has data.
-    If empty, run ingestion.
+    If empty, we ingest INTO THIS client/collection.
     """
     client = get_chroma_client()
     collection = get_or_create_collection(client)
@@ -20,13 +21,36 @@ def ensure_collection_ready():
     print("Collection count BEFORE ensure:", count)
 
     if count == 0:
-        print("Collection is empty. Running ingestion now...")
-        ingest_chunks()  # this will fill it
+        print("Collection is empty. Ingesting chunks into this collection now...")
 
-        # re-create client & collection after ingest
-        client = get_chroma_client()
-        collection = get_or_create_collection(client)
-        print("Collection count AFTER ensure:", collection.count())
+        chunks = load_chunks()
+        print(f"Total chunks to ingest: {len(chunks)}")
+
+        ids = []
+        texts = []
+        metadatas = []
+
+        for ch in tqdm(chunks):
+            ids.append(ch["id"])
+            texts.append(ch["text"])
+            metadatas.append({
+                "source": ch.get("source"),
+                "page_start": ch.get("page_start"),
+                "page_end": ch.get("page_end"),
+            })
+
+        print("Embedding texts...")
+        embeddings = embed_texts(texts)
+
+        print("Adding to collection...")
+        collection.add(
+            ids=ids,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            documents=texts,
+        )
+
+        print("Collection count AFTER inline ingest:", collection.count())
 
     return client, collection
 
@@ -58,7 +82,7 @@ if __name__ == "__main__":
     print(f"\nTotal results: {len(docs)}")
 
     if not docs:
-        print("No documents returned, even after ingestion.")
+        print("No documents returned, even after inline ingestion.")
     else:
         print("\nTop Chunks:")
         for i, (doc, meta) in enumerate(zip(docs, metas), start=1):
