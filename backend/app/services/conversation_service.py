@@ -1,7 +1,8 @@
 from typing import Optional, List
-from sqlalchemy.orm import Session
 from datetime import datetime
 import json
+
+from sqlalchemy.orm import Session
 
 from backend.app.db import models
 
@@ -12,11 +13,19 @@ def get_or_create_conversation(
     role: str,
     conversation_id: Optional[int] = None,
 ) -> models.Conversation:
+    """
+    For now, always creates a new conversation if conversation_id is None.
+    Later you can reuse an existing one for multi-turn.
+    """
     if conversation_id is not None:
-        conv = db.query(models.Conversation).filter(
-            models.Conversation.id == conversation_id,
-            models.Conversation.user_id == user.id,
-        ).first()
+        conv = (
+            db.query(models.Conversation)
+            .filter(
+                models.Conversation.id == conversation_id,
+                models.Conversation.user_id == user.id,
+            )
+            .first()
+        )
         if conv:
             return conv
 
@@ -57,7 +66,9 @@ def log_retrieval(
     chunks: List[dict],
     latency_ms: Optional[int] = None,
 ) -> models.RetrievalLog:
-    # Store only lightweight metadata for now
+    """
+    Store light metadata of retrieved chunks as JSON.
+    """
     meta_list = [
         {
             "source": c.get("source"),
