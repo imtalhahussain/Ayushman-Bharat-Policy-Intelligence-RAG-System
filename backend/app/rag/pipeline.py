@@ -1,50 +1,65 @@
-from typing import Dict, Any, List
+from typing import List, Dict, Literal
 
-from .retrieve import retrieve_top_k
+import chromadb
+from sentence_transformers import SentenceTransformer
+
+from backend.app.rag.prompts import build_rag_prompt
+from backend.app.rag.llm_client import generate_answer
+from backend.app.rag.vector_store import CHROMA_DIR
 
 
-def build_naive_answer(query: str, chunks: List[Dict[str, Any]]) -> str:
+Role = Literal["citizen", "doctor", "hospital_admin", "policy_maker"]
+
+# Load embedding model once at module import
+_embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+# Connect to the same Chroma DB used during ingestion
+_chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)
+_collection = _chroma_client.get_or_create_collection("ayushman_policies")
+
+
+def _retrieve(query: str, top_k: int = 3) -> List[Dict]:
     """
-    For now: just stitch together relevant chunks.
-    Later you will replace this with a real LLM call.
+    Run semantic search in Chroma and return a list of chunks:
+    [{source, page_start, page_end, text}, ...]
     """
-    if not chunks:
-        return "I could not find any relevant information for this query in the indexed Ayushman Bharat policies."
+    # Embed the query using the same model as ingestion
+    query_emb = _embedding_model.encode([query]).tolist()
 
-    intro = f"Here are relevant excerpts from Ayushman Bharat / PM-JAY documents for your query:\n\n\"{query}\"\n\n"
-    parts = []
-    for i, ch in enumerate(chunks, start=1):
-        src = ch.get("source")
-        p1 = ch.get("page_start")
-        p2 = ch.get("page_end")
-        header = f"[{i}] Source: {src}, pages {p1}-{p2}"
-        text = ch.get("text", "")
-        snippet = text[:700] + ("..." if len(text) > 700 else "")
-        parts.append(f"{header}\n{snippet}")
+    res = _collection.query(
+        query_embeddings=query_emb,
+        n_results=top_k,
+    )
 
-    return intro + "\n\n".join(parts)
+    docs = res.get("documents", [[]])[0]
+    metas = res.get("metadatas", [[]])[0]
+
+    chunks: List[Dict] = []
+    for text, meta in zip(docs, metas):
+        chunks.append(
+            {
+                "source": meta.get("source", meta.get("doc_id", "unknown")),
+                "page_start": int(meta.get("page_start", meta.get("page", 0))),
+                "page_end": int(meta.get("page_end", meta.get("page", 0))),
+                "text": text,
+            }
+        )
+    return chunks
 
 
-def answer_query(query: str, top_k: int = 3) -> Dict[str, Any]:
+def answer_query(query: str, role: Role = "citizen", top_k: int = 3) -> Dict:
     """
-    Main RAG pipeline entry for the API.
-    Returns { 'answer': str, 'sources': [...] }
+    High-level RAG function:
+    - retrieve top_k chunks
+    - build role-aware prompt
+    - call LLM
+    - return answer + sources
     """
-    chunks = retrieve_top_k(query, k=top_k)
-
-    answer = build_naive_answer(query, chunks)
-
-    sources = [
-        {
-            "source": ch.get("source"),
-            "page_start": ch.get("page_start"),
-            "page_end": ch.get("page_end"),
-            "text": ch.get("text"),
-        }
-        for ch in chunks
-    ]
+    chunks = _retrieve(query, top_k=top_k)
+    prompt = build_rag_prompt(query=query, role=role, docs=chunks)
+    answer = generate_answer(prompt)
 
     return {
         "answer": answer,
-        "sources": sources,
+        "sources": chunks,
     }

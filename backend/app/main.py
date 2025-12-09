@@ -14,4 +14,8 @@ app.include_router(chat_router)
 
 @app.get("/check-key")
 def check_key():
-    return {"key_loaded": bool(settings.OPENAI_API_KEY)}
+    key = settings.OPENAI_API_KEY
+    return {
+        "key_loaded": bool(key),
+        "prefix": key[:10] if key else None
+    }

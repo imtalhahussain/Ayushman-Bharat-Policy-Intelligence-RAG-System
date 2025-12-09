@@ -1,24 +1,31 @@
-# backend/app/api/routes_chat.py
-
 from fastapi import APIRouter
-from ..schemas.chat import ChatRequest, ChatResponse, SourceChunk
-from ..rag.pipeline import answer_query
+from backend.app.schemas.chat import ChatRequest, ChatResponse, SourceChunk
+from backend.app.rag.pipeline import answer_query
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("/ask", response_model=ChatResponse)
-def ask_question(payload: ChatRequest):
-    result = answer_query(payload.query, top_k=payload.top_k)
+def ask_question(payload: ChatRequest) -> ChatResponse:
+    """
+    RAG endpoint:
+    - Takes query + top_k + role
+    - Returns LLM answer + retrieved sources
+    """
+    result = answer_query(
+        query=payload.query,
+        role=payload.role,
+        top_k=payload.top_k,
+    )
 
     sources = [
         SourceChunk(
-            source=src["source"],
-            page_start=src["page_start"],
-            page_end=src["page_end"],
-            text=src["text"],
+            source=s["source"],
+            page_start=s["page_start"],
+            page_end=s["page_end"],
+            text=s["text"],
         )
-        for src in result["sources"]
+        for s in result["sources"]
     ]
 
     return ChatResponse(
