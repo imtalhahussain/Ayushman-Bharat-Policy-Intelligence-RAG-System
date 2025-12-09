@@ -1,3 +1,5 @@
+# backend/app/api/routes_chat.py
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 import time
@@ -24,20 +26,22 @@ def ask_question(
     """
     Authenticated RAG endpoint:
     - Uses current_user from JWT
-    - Creates/uses a conversation
+    - Creates a conversation
     - Logs user & assistant messages
-    - Logs retrieval metadata
+    - Logs retrieval metadata & latency
     """
 
-    # 1) Create a new conversation for now (later you can pass conv_id)
+    # 1) Create a new conversation per request for now
+    role = payload.role or current_user.role
+
     conversation = get_or_create_conversation(
         db=db,
         user=current_user,
-        role=payload.role or current_user.role,
-        conversation_id=None,
+        role=role,
+        conversation_id=None,  # later you can support conversation_id from client
     )
 
-    # 2) Log user question as a message
+    # 2) Log user question
     add_message(
         db=db,
         conversation=conversation,
@@ -45,16 +49,16 @@ def ask_question(
         text=payload.query,
     )
 
-    # 3) Run RAG pipeline
+    # 3) Run RAG pipeline with timing
     t0 = time.time()
     result = answer_query(
         query=payload.query,
-        role=payload.role or current_user.role,
+        role=role,
         top_k=payload.top_k,
     )
     latency_ms = int((time.time() - t0) * 1000)
 
-    # 4) Log retrieval metadata
+    # 4) Log retrieval info
     log_retrieval(
         db=db,
         conversation=conversation,
@@ -64,7 +68,7 @@ def ask_question(
         latency_ms=latency_ms,
     )
 
-    # 5) Log assistant answer as a message
+    # 5) Log assistant answer
     add_message(
         db=db,
         conversation=conversation,
