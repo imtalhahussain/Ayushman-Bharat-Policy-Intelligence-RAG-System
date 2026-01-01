@@ -1,19 +1,49 @@
-from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from backend.app.schemas.auth import UserCreate, Token
 from backend.app.db.session import SessionLocal
-from backend.app.services.auth_service import create_user
-from backend.app.services.security import create_access_token
+from backend.app.db.models import User
+from backend.app.schemas.auth import UserCreate
+from backend.app.services.security import hash_password, verify_password
 
-router = APIRouter(prefix="/auth", tags=["auth"])
 
-@router.post("/signup")
-def signup(user: UserCreate):
+# ---------- DB session helper ----------
+def get_db():
     db = SessionLocal()
-    create_user(db, user.email, user.name, user.password, user.role)
-    return {"status": "created"}
+    try:
+        yield db
+    finally:
+        db.close()
 
-@router.post("/login", response_model=Token)
-def login(email: str, password: str):
-    token = create_access_token(email)
-    return {"access_token": token}
+
+# ---------- Create user ----------
+def create_user(data: UserCreate):
+    db: Session = next(get_db())
+
+    existing = db.query(User).filter(User.email == data.email).first()
+    if existing:
+        raise ValueError("User already exists")
+
+    user = User(
+        email=data.email,
+        name=data.name,
+        role=data.role,
+        hashed_password=hash_password(data.password),
+    )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# ---------- Authenticate user ----------
+def authenticate_user(email: str, password: str):
+    db: Session = next(get_db())
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return None
+
+    if not verify_password(password, user.hashed_password):
+        return None
+
+    return user
