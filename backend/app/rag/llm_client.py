@@ -1,11 +1,16 @@
-from openai import OpenAI
+from groq import Groq
 from backend.app.config import settings
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+client = Groq(api_key=settings.GROQ_API_KEY)
 
 def generate_answer(prompt: str) -> str:
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
+    response = client.chat.completions.create(
+        model="llama3-70b-8192",  # fast + high quality
+        messages=[
+            {"role": "system", "content": "You are a helpful policy assistant."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.2,
     )
-    return resp.choices[0].message.content
+
+    return response.choices[0].message.content.strip()
