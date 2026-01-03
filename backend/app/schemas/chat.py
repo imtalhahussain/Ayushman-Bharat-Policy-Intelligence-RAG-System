@@ -1,11 +1,10 @@
 from pydantic import BaseModel
-from typing import List
 
 class ChatRequest(BaseModel):
     query: str
     top_k: int = 3
-    role: str
+    role: str | None = None
 
 class ChatResponse(BaseModel):
     answer: str
-    sources: List[dict]
+    sources: list
