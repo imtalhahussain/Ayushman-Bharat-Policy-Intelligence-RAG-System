@@ -12,3 +12,19 @@ class Settings:
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")
 
 settings = Settings()
+# LLM
+LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")
+
+# Groq
+GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
+GROQ_MODEL: str = os.getenv(
+    "GROQ_MODEL",
+    "llama-3.1-8b-instant"  # ✅ currently supported
+)
+
+# OpenAI (optional fallback)
+OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL: str = os.getenv(
+    "OPENAI_MODEL",
+    "gpt-4o-mini"
+)
