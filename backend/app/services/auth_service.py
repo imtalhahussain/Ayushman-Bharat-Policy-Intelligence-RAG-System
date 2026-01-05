@@ -2,7 +2,9 @@ from sqlalchemy.orm import Session
 from backend.app.db.session import SessionLocal
 from backend.app.db.models import User
 from backend.app.schemas.auth import UserCreate
-from backend.app.services.security import hash_password, verify_password
+from backend.app.services.security import get_password_hash, verify_password
+
+
 
 
 # ---------- DB session helper ----------
@@ -26,7 +28,8 @@ def create_user(data: UserCreate):
         email=data.email,
         name=data.name,
         role=data.role,
-        hashed_password=hash_password(data.password),
+        hashed = get_password_hash(data.password)
+
     )
 
     db.add(user)
