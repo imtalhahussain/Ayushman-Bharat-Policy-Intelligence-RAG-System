@@ -1,51 +1,32 @@
-from typing import List, Dict, Any
-
-from .vector_store import (
-    get_chroma_client,
-    get_or_create_collection,
-    embed_texts,
-)
+from typing import List, Dict
+from backend.app.rag.vector_store import vectorstore
 
 
-def retrieve_top_k(query: str, k: int = 3) -> List[Dict[str, Any]]:
+class RetrievalResult:
+    def __init__(self, content: str, metadata: Dict):
+        self.content = content
+        self.metadata = metadata
+
+
+def retrieve_context(query: str, top_k: int = 3) -> List[RetrievalResult]:
     """
-    Returns list of dicts:
-    [
-      {
-        "source": str,
-        "page_start": int,
-        "page_end": int,
-        "text": str,
-        "distance": float
-      }, ...
-    ]
+    Retrieve top-k grounded chunks from vector store.
+    No LLM involved here.
     """
-    client = get_chroma_client()
-    collection = get_or_create_collection(client)
 
-    query_emb = embed_texts([query])
-
-    results = collection.query(
-        query_embeddings=query_emb,
-        n_results=k,
+    docs = vectorstore.similarity_search(
+        query=query,
+        k=top_k,
     )
 
-    docs = results.get("documents", [[]])[0]
-    metas = results.get("metadatas", [[]])[0]
-    dists = results.get("distances", [[]])[0]
+    results: List[RetrievalResult] = []
 
-    out = []
-    for doc, meta, dist in zip(docs, metas, dists):
-        if not doc:
-            continue
-        out.append(
-            {
-                "source": meta.get("source"),
-                "page_start": meta.get("page_start"),
-                "page_end": meta.get("page_end"),
-                "text": doc,
-                "distance": float(dist),
-            }
+    for doc in docs:
+        results.append(
+            RetrievalResult(
+                content=doc.page_content,
+                metadata=doc.metadata,
+            )
         )
 
-    return out
+    return results

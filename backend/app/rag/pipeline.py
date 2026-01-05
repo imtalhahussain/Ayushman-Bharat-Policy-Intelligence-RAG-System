@@ -1,98 +1,48 @@
-from typing import List, Dict, Any
-
+from backend.app.rag.retriever import retrieve_context
 from backend.app.llm.provider import generate_llm_answer
-from backend.app.rag.retriever import retrieve_documents
 
 
-def build_prompt(
-    query: str,
-    documents: List[Dict[str, Any]],
-    role: str | None = None,
-) -> str:
-    """
-    Builds a grounded prompt using retrieved documents.
-    """
+def build_prompt(query: str, contexts: list[str], role: str) -> str:
+    joined_context = "\n\n".join(contexts)
 
-    context_blocks = []
-    for i, doc in enumerate(documents, start=1):
-        context_blocks.append(
-            f"[Source {i}]\n{doc['content']}"
-        )
+    return f"""
+You are an expert assistant answering questions using ONLY the provided context.
 
-    context = "\n\n".join(context_blocks)
-
-    system_instruction = (
-        "You are a policy intelligence assistant for Ayushman Bharat.\n"
-        "Answer ONLY using the provided sources.\n"
-        "If the answer is not present in the sources, say so explicitly.\n"
-        "Do not hallucinate or assume facts.\n"
-    )
-
-    if role:
-        system_instruction += f"\nUser role/context: {role}\n"
-
-    prompt = f"""
-{system_instruction}
+Role: {role}
 
 Context:
-{context}
+{joined_context}
 
 Question:
 {query}
 
-Answer (with references to source numbers):
+Rules:
+- If the answer is not in the context, say: "The information is not available in the provided documents."
+- Do NOT hallucinate.
+- Be concise and factual.
 """
 
-    return prompt.strip()
 
+def answer_query(query: str, role: str, top_k: int = 3):
+    retrieved = retrieve_context(query, top_k)
 
-def answer_query(
-    query: str,
-    role: str | None = None,
-    top_k: int = 3,
-) -> Dict[str, Any]:
-    """
-    End-to-end RAG pipeline:
-    1. Retrieve documents
-    2. Build grounded prompt
-    3. Call LLM provider
-    4. Return answer + sources
-    """
-
-    # 1. Retrieve
-    documents = retrieve_documents(query=query, top_k=top_k)
-
-    if not documents:
+    if not retrieved:
         return {
-            "answer": "No relevant policy documents were found for this query.",
+            "answer": "No relevant policy documents found.",
             "sources": [],
         }
 
-    # 2. Prompt
-    prompt = build_prompt(
-        query=query,
-        documents=documents,
-        role=role,
-    )
+    contexts = [r.content for r in retrieved]
+    prompt = build_prompt(query, contexts, role)
 
-    # 3. LLM call (provider-abstracted)
-    try:
-        answer = generate_llm_answer(prompt)
-    except Exception:
-        # Graceful degradation (NO crash)
-        return {
-            "answer": "The language model is temporarily unavailable. Please try again later.",
-            "sources": [],
-        }
+    answer = generate_llm_answer(prompt)
 
-    # 4. Return structured response
+    sources = [
+        r.metadata.get("source", "unknown")
+        for r in retrieved
+    ]
+
     return {
         "answer": answer,
-        "sources": [
-            {
-                "id": i + 1,
-                "metadata": doc.get("metadata", {}),
-            }
-            for i, doc in enumerate(documents)
-        ],
+        "sources": list(set(sources)),
     }
