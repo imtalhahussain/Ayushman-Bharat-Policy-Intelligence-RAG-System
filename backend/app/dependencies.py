@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 import jwt
 
-from backend.app.config import settings
+from backend.app.config.settings import settings
 from backend.app.db.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -23,8 +23,9 @@ def get_current_user(
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
         email = payload.get("sub")
-    except:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"JWT Decode Error: {e}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
     user = db.query(User).filter(User.email == email).first()
     if not user:

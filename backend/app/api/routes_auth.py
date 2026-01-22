@@ -7,19 +7,22 @@ from backend.app.services.auth_service import (
 )
 from backend.app.services.security import create_access_token
 from backend.app.schemas.auth import Token, UserCreate
+from backend.app.dependencies import get_db
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/signup", status_code=201)
-def signup(payload: UserCreate):
-    user = create_user(payload.email, payload.password)
+def signup(payload: UserCreate, db: Session = Depends(get_db)):
+    user = create_user(db, payload)
     return {"message": "User created successfully"}
 
 
 @router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(
+        db=db,
         email=form_data.username,
         password=form_data.password,
     )
