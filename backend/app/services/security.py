@@ -1,11 +1,18 @@
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
 import jwt
+import bcrypt
 
 from backend.app.config.settings import settings
 
 # ---------------- CONFIG ---------------- #
+# Manually add the attribute that passlib is looking for
+if not hasattr(bcrypt, "__about__"):
+    class About:
+        __version__ = bcrypt.__version__
+    bcrypt.__about__ = About()
 
+from passlib.context import CryptContext
 ALGORITHM = settings.JWT_ALGORITHM
 ACCESS_TOKEN_EXPIRE_HOURS = 12
 MAX_BCRYPT_BYTES = 72

@@ -8,28 +8,17 @@ from backend.app.services.security import get_password_hash, verify_password
 
 
 # ---------- DB session helper ----------
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 # ---------- Create user ----------
-def create_user(data: UserCreate):
-    db: Session = next(get_db())
-
+def create_user(db: Session, data: UserCreate):
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
         raise ValueError("User already exists")
 
     user = User(
         email=data.email,
-        name=data.name,
+        name=data.name or data.email.split('@')[0],
         role=data.role,
-        hashed = get_password_hash(data.password)
-
+        hashed_password=get_password_hash(data.password)
     )
 
     db.add(user)
@@ -39,9 +28,7 @@ def create_user(data: UserCreate):
 
 
 # ---------- Authenticate user ----------
-def authenticate_user(email: str, password: str):
-    db: Session = next(get_db())
-
+def authenticate_user(db: Session, email: str, password: str):
     user = db.query(User).filter(User.email == email).first()
     if not user:
         return None
